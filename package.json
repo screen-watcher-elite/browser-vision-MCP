@@ -1,0 +1,40 @@
+{
+  "name": "browser-vision-mcp",
+  "version": "1.0.0",
+  "description": "Autonomous Browser & Computer-Use MCP Server with Vision capabilities, powered by local Chrome/Edge.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "browser-vision-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "prepare": "tsc"
+  },
+  "keywords": [
+    "mcp",
+    "browser",
+    "computer-use",
+    "vision",
+    "puppeteer-core",
+    "antigravity",
+    "claude"
+  ],
+  "author": "Ashutosh <screen-watcher-elite>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "puppeteer-core": "^24.4.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.8",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
