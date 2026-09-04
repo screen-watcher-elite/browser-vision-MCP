@@ -1,0 +1,236 @@
+[
+  {
+    "mode": "transform",
+    "name": "1_2d_matrix",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\1_2d_matrix.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 1442,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "eigen",
+    "name": "2_eigen",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\2_eigen.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 1238,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "mult",
+    "name": "3_matrix_mult",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\3_matrix_mult.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 838,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "vectors",
+    "name": "4_vectors",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\4_vectors.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 878,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "3d",
+    "name": "5_3d_space",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\5_3d_space.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 1139,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "loss",
+    "name": "6_losslab",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\6_losslab.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 965,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "autograd",
+    "name": "7_autograd",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\7_autograd.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 854,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "notes",
+    "name": "8_notes",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\8_notes.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 1253,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  },
+  {
+    "mode": "quiz",
+    "name": "9_quiz",
+    "screenshot": "C:\\Users\\Ashutosh\\PSL2\\browser-vision-mcp\\audit\\9_quiz.png",
+    "telemetry": {
+      "activePanel": "panel-transform",
+      "sidebarScrollHeight": 829,
+      "sidebarClientHeight": 740,
+      "invariantsVisible": true,
+      "bodyOverflowX": false,
+      "canvasWidth": 900,
+      "canvasHeight": 740
+    },
+    "errors": [
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.793Z"
+      },
+      {
+        "type": "error",
+        "text": "Failed to load resource: the server responded with a status of 404 ()",
+        "timestamp": "2026-09-04T05:42:49.836Z"
+      }
+    ]
+  }
+]
