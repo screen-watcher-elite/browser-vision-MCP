@@ -4,6 +4,11 @@ import path from 'node:path';
 import { CredentialGuard } from './security/credential-guard.js';
 import { ExpeditionGuard } from './security/expedition-guard.js';
 import { InjectionScrubber } from './security/injection-scrubber.js';
+import { SsrfGuard } from './security/ssrf-guard.js';
+import { ExfiltrationGuard } from './security/exfiltration-guard.js';
+import { PhishingGuard } from './security/phishing-guard.js';
+import { TransactionBarrier } from './security/transaction-barrier.js';
+import { CircuitBreaker } from './security/circuit-breaker.js';
 
 // Known Windows browser executable locations
 const CANDIDATE_PATHS = [
@@ -50,6 +55,7 @@ export class AutonomousBrowser {
   // Security Firewall
   private expeditionGuard = new ExpeditionGuard();
   private credentialGuard = new CredentialGuard();
+  private circuitBreaker = new CircuitBreaker();
 
   constructor(executablePath?: string) {
     this.executablePath = executablePath || findBrowserExecutable();
@@ -61,6 +67,7 @@ export class AutonomousBrowser {
 
   public clearExpedition() {
     this.expeditionGuard.clearExpedition();
+    this.circuitBreaker.reset();
   }
 
   public getSecurityStatus() {
@@ -69,6 +76,14 @@ export class AutonomousBrowser {
       credentialFirewall: {
         blockedAttempts: this.credentialGuard.getBlockedCount(),
       },
+      defenseStandards: [
+        'OWASP GenAI ACS 2026',
+        'SSRF & Cloud Metadata Perimeter',
+        'Data Exfiltration Query Scanner',
+        'Homograph & Punycode Phishing Detector',
+        'Financial Transaction Barrier',
+        'Action Loop Circuit-Breaker',
+      ],
     };
   }
 
@@ -123,12 +138,40 @@ export class AutonomousBrowser {
 
   public async navigate(
     url: string,
-    options: { waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2'; timeout?: number } = {}
+    options: {
+      waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
+      timeout?: number;
+      allowLocalhost?: boolean;
+    } = {}
   ): Promise<{ status: number | null; url: string }> {
-    // 1. Security Domain Boundary Check
+    // 1. SSRF & Localhost Defense
+    const ssrfCheck = SsrfGuard.check(url, { allowLocalhost: options.allowLocalhost });
+    if (!ssrfCheck.allowed) {
+      throw new Error(ssrfCheck.reason);
+    }
+
+    // 2. Data Exfiltration via Query String Defense
+    const exfilCheck = ExfiltrationGuard.checkUrl(url);
+    if (!exfilCheck.isSafe) {
+      throw new Error(exfilCheck.reason);
+    }
+
+    // 3. Homograph & Punycode Phishing Defense
+    const phishCheck = PhishingGuard.check(url);
+    if (!phishCheck.isSafe) {
+      throw new Error(phishCheck.reason);
+    }
+
+    // 4. Security Domain Boundary Check
     const navCheck = this.expeditionGuard.checkNavigation(url);
     if (!navCheck.allowed) {
       throw new Error(navCheck.reason);
+    }
+
+    // 5. Circuit Breaker Anti-Loop Check
+    const loopCheck = this.circuitBreaker.recordAndCheck('navigate', url);
+    if (loopCheck.isTripped) {
+      throw new Error(loopCheck.message);
     }
 
     const page = await this.ensurePage();
@@ -178,8 +221,15 @@ export class AutonomousBrowser {
 
   public async click(
     selectorOrCoords: { selector?: string; x?: number; y?: number },
-    options: { bypassSecurity?: boolean } = {}
+    options: { bypassSecurity?: boolean; allowFinancialAction?: boolean } = {}
   ): Promise<void> {
+    // 1. Circuit Breaker Check
+    const targetKey = selectorOrCoords.selector || `${selectorOrCoords.x},${selectorOrCoords.y}`;
+    const loopCheck = this.circuitBreaker.recordAndCheck('click', targetKey);
+    if (loopCheck.isTripped) {
+      throw new Error(loopCheck.message);
+    }
+
     const page = await this.ensurePage();
 
     if (typeof selectorOrCoords.x === 'number' && typeof selectorOrCoords.y === 'number') {
@@ -187,9 +237,18 @@ export class AutonomousBrowser {
     } else if (selectorOrCoords.selector) {
       await page.waitForSelector(selectorOrCoords.selector, { timeout: 8000 });
 
-      // Security check on element text
+      const text = await page.$eval(selectorOrCoords.selector, (el) => (el.textContent || '').trim());
+
+      // 2. Financial Transaction Barrier
+      if (!options.allowFinancialAction) {
+        const finCheck = TransactionBarrier.checkAction(text);
+        if (finCheck.isFinancial) {
+          throw new Error(finCheck.reason);
+        }
+      }
+
+      // 3. Destructive Action Interception
       if (!options.bypassSecurity) {
-        const text = await page.$eval(selectorOrCoords.selector, (el) => (el.textContent || '').trim());
         const dest = this.expeditionGuard.checkDestructiveAction(text);
         if (dest.isDestructive) {
           throw new Error(

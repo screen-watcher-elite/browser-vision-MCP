@@ -114,16 +114,17 @@ server.tool(
 
 server.tool(
   'browser_open',
-  'Open the browser and navigate to a specified URL (supports http://, https://, and local file:/// URLs) with domain boundary checks.',
+  'Open the browser and navigate to a specified URL (supports http://, https://, and local file:/// URLs) with domain boundary checks, SSRF guard, and phishing protection.',
   {
     url: z.string().describe('The URL to navigate to (e.g. "https://screen-watcher-elite.github.io/tensorforge/" or "file:///C:/...")'),
     waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle0', 'networkidle2']).default('domcontentloaded').describe('Navigation wait condition'),
     timeout: z.number().default(30000).describe('Timeout in milliseconds'),
+    allowLocalhost: z.boolean().default(false).describe('Allow navigation to local addresses (localhost / 127.0.0.1) for local web development'),
   },
-  async ({ url, waitUntil, timeout }) => {
+  async ({ url, waitUntil, timeout, allowLocalhost }) => {
     try {
       const browser = getBrowser();
-      const res = await browser.navigate(url, { waitUntil, timeout });
+      const res = await browser.navigate(url, { waitUntil, timeout, allowLocalhost });
       return {
         content: [
           {
@@ -192,17 +193,18 @@ server.tool(
 
 server.tool(
   'browser_click',
-  'Click on a web page element using either a CSS selector or absolute (x, y) screen coordinates. Intercepts destructive actions.',
+  'Click on a web page element using either a CSS selector or absolute (x, y) screen coordinates. Intercepts destructive actions and payment transactions.',
   {
     selector: z.string().optional().describe('CSS selector of the element to click (e.g. "#btn-eigen", "button.active")'),
     x: z.number().optional().describe('Optional X coordinate on the page viewport to click'),
     y: z.number().optional().describe('Optional Y coordinate on the page viewport to click'),
     bypassSecurity: z.boolean().default(false).describe('Explicitly confirm potentially destructive actions (delete, wipe)'),
+    allowFinancialAction: z.boolean().default(false).describe('Explicitly confirm financial transactions or checkouts (pay, buy now, purchase)'),
   },
-  async ({ selector, x, y, bypassSecurity }) => {
+  async ({ selector, x, y, bypassSecurity, allowFinancialAction }) => {
     try {
       const browser = getBrowser();
-      await browser.click({ selector, x, y }, { bypassSecurity });
+      await browser.click({ selector, x, y }, { bypassSecurity, allowFinancialAction });
       return {
         content: [
           {
