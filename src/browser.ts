@@ -1,6 +1,9 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
+import { CredentialGuard } from './security/credential-guard.js';
+import { ExpeditionGuard } from './security/expedition-guard.js';
+import { InjectionScrubber } from './security/injection-scrubber.js';
 
 // Known Windows browser executable locations
 const CANDIDATE_PATHS = [
@@ -44,8 +47,29 @@ export class AutonomousBrowser {
   private consoleLogs: Array<{ type: string; text: string; timestamp: string }> = [];
   private executablePath: string;
 
+  // Security Firewall
+  private expeditionGuard = new ExpeditionGuard();
+  private credentialGuard = new CredentialGuard();
+
   constructor(executablePath?: string) {
     this.executablePath = executablePath || findBrowserExecutable();
+  }
+
+  public setExpedition(goal: string, allowedDomains: string[], strictMode = true) {
+    return this.expeditionGuard.setExpedition(goal, allowedDomains, strictMode);
+  }
+
+  public clearExpedition() {
+    this.expeditionGuard.clearExpedition();
+  }
+
+  public getSecurityStatus() {
+    return {
+      expedition: this.expeditionGuard.getTelemetry(),
+      credentialFirewall: {
+        blockedAttempts: this.credentialGuard.getBlockedCount(),
+      },
+    };
   }
 
   public async ensurePage(options: BrowserOptions = {}): Promise<Page> {
@@ -74,7 +98,6 @@ export class AutonomousBrowser {
     const vp = options.viewport || { width: 1280, height: 800 };
     await this.page.setViewport(vp);
 
-    // Track console output for debugging client web applications
     this.consoleLogs = [];
     this.page.on('console', (msg) => {
       this.consoleLogs.push({
@@ -82,7 +105,6 @@ export class AutonomousBrowser {
         text: msg.text(),
         timestamp: new Date().toISOString(),
       });
-      // Print to stderr so MCP JSON-RPC on stdout remains clean
       console.error(`[Browser Console ${msg.type()}]: ${msg.text()}`);
     });
 
@@ -103,6 +125,12 @@ export class AutonomousBrowser {
     url: string,
     options: { waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2'; timeout?: number } = {}
   ): Promise<{ status: number | null; url: string }> {
+    // 1. Security Domain Boundary Check
+    const navCheck = this.expeditionGuard.checkNavigation(url);
+    if (!navCheck.allowed) {
+      throw new Error(navCheck.reason);
+    }
+
     const page = await this.ensurePage();
     const response = await page.goto(url, {
       waitUntil: options.waitUntil || 'domcontentloaded',
@@ -148,19 +176,47 @@ export class AutonomousBrowser {
     };
   }
 
-  public async click(selectorOrCoords: { selector?: string; x?: number; y?: number }): Promise<void> {
+  public async click(
+    selectorOrCoords: { selector?: string; x?: number; y?: number },
+    options: { bypassSecurity?: boolean } = {}
+  ): Promise<void> {
     const page = await this.ensurePage();
+
     if (typeof selectorOrCoords.x === 'number' && typeof selectorOrCoords.y === 'number') {
       await page.mouse.click(selectorOrCoords.x, selectorOrCoords.y);
     } else if (selectorOrCoords.selector) {
       await page.waitForSelector(selectorOrCoords.selector, { timeout: 8000 });
+
+      // Security check on element text
+      if (!options.bypassSecurity) {
+        const text = await page.$eval(selectorOrCoords.selector, (el) => (el.textContent || '').trim());
+        const dest = this.expeditionGuard.checkDestructiveAction(text);
+        if (dest.isDestructive) {
+          throw new Error(
+            `[SECURITY BLOCKED] Element appears to trigger destructive action ("${dest.keyword}"). Pass bypassSecurity: true to confirm.`
+          );
+        }
+      }
+
       await page.click(selectorOrCoords.selector);
     } else {
       throw new Error('Either selector or x & y coordinates must be provided to click.');
     }
   }
 
-  public async type(selector: string, text: string, options: { clear?: boolean; delay?: number } = {}): Promise<void> {
+  public async type(
+    selector: string,
+    text: string,
+    options: { clear?: boolean; delay?: number; bypassSecurity?: boolean } = {}
+  ): Promise<void> {
+    // Security check on credential leakage
+    if (!options.bypassSecurity) {
+      const credCheck = this.credentialGuard.scan(text);
+      if (credCheck.isSensitive) {
+        throw new Error(`[SECURITY VIOLATION] ${credCheck.reason}`);
+      }
+    }
+
     const page = await this.ensurePage();
     await page.waitForSelector(selector, { timeout: 8000 });
     if (options.clear) {
@@ -177,17 +233,27 @@ export class AutonomousBrowser {
 
   public async getDom(selector?: string): Promise<string> {
     const page = await this.ensurePage();
+    const currentUrl = page.url();
+    const currentGoal = this.expeditionGuard.getTelemetry().currentGoal;
+
+    await InjectionScrubber.scrubPageDom(page);
+
+    let content: string;
     if (selector) {
-      const html = await page.$eval(selector, (el) => el.outerHTML);
-      return html;
+      content = await page.$eval(selector, (el) => el.outerHTML);
+    } else {
+      content = await page.content();
     }
-    return await page.content();
+
+    return InjectionScrubber.wrapUntrustedContent(content, currentUrl, currentGoal);
   }
 
   public async getInteractiveElements(): Promise<
     Array<{ tagName: string; id?: string; className?: string; text?: string; selector: string; rect: { x: number; y: number; width: number; height: number } }>
   > {
     const page = await this.ensurePage();
+    await InjectionScrubber.scrubPageDom(page);
+
     return await page.evaluate(() => {
       const elements = Array.from(document.querySelectorAll<HTMLElement>('button, a, input, select, textarea, [role="button"], canvas'));
       return elements.map((el) => {
@@ -224,7 +290,7 @@ export class AutonomousBrowser {
     );
   }
 
-  public getLogs(): Array<{ type: string; text: string; timestamp: string }> {
+  public getConsoleLogs(): Array<{ type: string; text: string; timestamp: string }> {
     return [...this.consoleLogs];
   }
 

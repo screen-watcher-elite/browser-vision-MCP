@@ -6,13 +6,21 @@
  * Uses local Google Chrome or Microsoft Edge binaries via puppeteer-core,
  * bypassing external driver download issues and providing fast, reliable visual perception.
  *
+ * Security Features:
+ *   - Expedition goal pinning and domain whitelisting
+ *   - Credential regex firewall (blocks API keys & private keys from leaking)
+ *   - Destructive action interception (delete, wipe, purge)
+ *   - Invisible text and indirect prompt injection scrubber
+ *
  * Tools:
- *   - browser_open: Navigate to an HTTP or file:// URL
+ *   - browser_set_expedition: Pin active goal and allowed domain boundary
+ *   - browser_get_security_status: Telemetry of blocked injection and leakage attacks
+ *   - browser_open: Navigate to an HTTP or file:// URL with domain boundary checks
  *   - browser_screenshot: Take high-resolution screenshot (returns base64 image for visual models)
- *   - browser_click: Click elements by CSS selector or (x, y) coordinate
- *   - browser_type: Input text into fields or trigger key presses
+ *   - browser_click: Click elements by CSS selector or (x, y) coordinate with safety checks
+ *   - browser_type: Input text into fields with credential leakage protection
  *   - browser_evaluate: Execute arbitrary JavaScript in the page context
- *   - browser_get_dom: Extract HTML or interactive UI element map
+ *   - browser_get_dom: Extract HTML or interactive UI element map wrapped in XML fences
  *   - browser_console_logs: Inspect browser console logs & uncaught errors
  *   - browser_scroll: Scroll the page up/down
  *   - browser_close: Terminate browser session
@@ -26,7 +34,7 @@ import { AutonomousBrowser } from './browser.js';
 
 const server = new McpServer({
   name: 'browser-vision-mcp',
-  version: '1.0.0',
+  version: '1.1.0',
 });
 
 let browserInstance: AutonomousBrowser | null = null;
@@ -38,11 +46,75 @@ function getBrowser(): AutonomousBrowser {
   return browserInstance;
 }
 
+// ── Security Tools ──────────────────────────────────────────────────────────
+
+server.tool(
+  'browser_set_expedition',
+  'Pins the active goal and restricts navigation to a whitelisted list of domains. Protects against indirect prompt injection and unauthorized browsing.',
+  {
+    goal: z.string().describe('The core objective of the expedition (e.g. "Explore TensorForge")'),
+    allowedDomains: z.array(z.string()).describe('List of allowed root domains (e.g. ["screen-watcher-elite.github.io"])'),
+    strictMode: z.boolean().default(true).describe('Whether to strictly block navigation outside allowed domains'),
+  },
+  async ({ goal, allowedDomains, strictMode }) => {
+    try {
+      const browser = getBrowser();
+      const res = browser.setExpedition(goal, allowedDomains, strictMode);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `🛡️ Expedition Boundary Pinned Successfully:\n- Goal: "${res.currentGoal}"\n- Allowed Domains: [${res.allowedDomains.join(', ')}]\n- Strict Mode: ${res.strictMode}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Failed to set expedition: ${err instanceof Error ? err.message : String(err)}` }],
+      };
+    }
+  }
+);
+
+server.tool(
+  'browser_get_security_status',
+  'Inspects the active security status, current expedition goal, allowed domains, and count of blocked attacks.',
+  {},
+  async () => {
+    try {
+      const browser = getBrowser();
+      const status = browser.getSecurityStatus();
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: [
+              `🛡️ Browser Vision Security Telemetry:`,
+              `- Active Goal: ${status.expedition.currentGoal ? `"${status.expedition.currentGoal}"` : 'None (Open mode)'}`,
+              `- Whitelisted Domains: [${status.expedition.allowedDomains.join(', ')}]`,
+              `- Strict Mode: ${status.expedition.strictMode}`,
+              `- Blocked Cross-Domain Navigations: ${status.expedition.blockedNavigationCount}`,
+              `- Blocked Destructive Clicks: ${status.expedition.blockedDestructiveCount}`,
+              `- Blocked Credential Leak Attempts: ${status.credentialFirewall.blockedAttempts}`,
+            ].join('\n'),
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        isError: true,
+        content: [{ type: 'text' as const, text: `Failed to get security status: ${err instanceof Error ? err.message : String(err)}` }],
+      };
+    }
+  }
+);
+
 // ── Tool 1: Open / Navigate Browser ──────────────────────────────────────────
 
 server.tool(
   'browser_open',
-  'Open the browser and navigate to a specified URL (supports http://, https://, and local file:/// URLs).',
+  'Open the browser and navigate to a specified URL (supports http://, https://, and local file:/// URLs) with domain boundary checks.',
   {
     url: z.string().describe('The URL to navigate to (e.g. "https://screen-watcher-elite.github.io/tensorforge/" or "file:///C:/...")'),
     waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle0', 'networkidle2']).default('domcontentloaded').describe('Navigation wait condition'),
@@ -120,16 +192,17 @@ server.tool(
 
 server.tool(
   'browser_click',
-  'Click on a web page element using either a CSS selector or absolute (x, y) screen coordinates.',
+  'Click on a web page element using either a CSS selector or absolute (x, y) screen coordinates. Intercepts destructive actions.',
   {
     selector: z.string().optional().describe('CSS selector of the element to click (e.g. "#btn-eigen", "button.active")'),
     x: z.number().optional().describe('Optional X coordinate on the page viewport to click'),
     y: z.number().optional().describe('Optional Y coordinate on the page viewport to click'),
+    bypassSecurity: z.boolean().default(false).describe('Explicitly confirm potentially destructive actions (delete, wipe)'),
   },
-  async ({ selector, x, y }) => {
+  async ({ selector, x, y, bypassSecurity }) => {
     try {
       const browser = getBrowser();
-      await browser.click({ selector, x, y });
+      await browser.click({ selector, x, y }, { bypassSecurity });
       return {
         content: [
           {
@@ -156,22 +229,23 @@ server.tool(
 
 server.tool(
   'browser_type',
-  'Type text into a specified input field, textarea, or contenteditable element.',
+  'Type text into a specified input field, textarea, or contenteditable element with credential leakage protection.',
   {
     selector: z.string().describe('CSS selector of the input element'),
     text: z.string().describe('The text string to type'),
     clear: z.boolean().default(false).describe('Whether to clear existing text before typing'),
     delay: z.number().default(20).describe('Typing delay per keystroke in milliseconds'),
+    bypassSecurity: z.boolean().default(false).describe('Bypass credential pattern check (use with caution)'),
   },
-  async ({ selector, text, clear, delay }) => {
+  async ({ selector, text, clear, delay, bypassSecurity }) => {
     try {
       const browser = getBrowser();
-      await browser.type(selector, text, { clear, delay });
+      await browser.type(selector, text, { clear, delay, bypassSecurity });
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Successfully typed "${text}" into selector: "${selector}"`,
+            text: `Successfully typed into selector: "${selector}"`,
           },
         ],
       };
@@ -205,7 +279,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result),
+            text: `Evaluation result:\n${JSON.stringify(result, null, 2)}`,
           },
         ],
       };
@@ -215,7 +289,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: `Evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
+            text: `JavaScript evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
           },
         ],
       };
@@ -223,14 +297,14 @@ server.tool(
   }
 );
 
-// ── Tool 6: Get DOM / Interactive Elements ───────────────────────────────────
+// ── Tool 6: Extract DOM Content or Interactive Map ───────────────────────────
 
 server.tool(
   'browser_get_dom',
-  'Extract either the HTML content of the page/element, or retrieve a list of all interactive elements (buttons, links, inputs, coordinates).',
+  'Inspect the live DOM structure wrapped in security XML envelopes: either raw HTML or structured JSON map of interactive elements.',
   {
-    mode: z.enum(['html', 'interactive_elements']).default('interactive_elements').describe('Extraction mode'),
-    selector: z.string().optional().describe('Optional CSS selector when mode is "html"'),
+    mode: z.enum(['html', 'interactive_elements']).default('interactive_elements').describe('Extraction format'),
+    selector: z.string().optional().describe('Optional CSS selector to scope the HTML extraction'),
   },
   async ({ mode, selector }) => {
     try {
@@ -241,7 +315,7 @@ server.tool(
           content: [
             {
               type: 'text' as const,
-              text: JSON.stringify(elements, null, 2),
+              text: `Found ${elements.length} interactive elements:\n\n${JSON.stringify(elements, null, 2)}`,
             },
           ],
         };
@@ -251,7 +325,7 @@ server.tool(
           content: [
             {
               type: 'text' as const,
-              text: html.slice(0, 10000) + (html.length > 10000 ? '\n...[truncated]' : ''),
+              text: html,
             },
           ],
         };
@@ -262,7 +336,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: `Failed to get DOM: ${err instanceof Error ? err.message : String(err)}`,
+            text: `Failed to inspect DOM: ${err instanceof Error ? err.message : String(err)}`,
           },
         ],
       };
@@ -270,14 +344,61 @@ server.tool(
   }
 );
 
-// ── Tool 7: Scroll Viewport ──────────────────────────────────────────────────
+// ── Tool 7: Browser Console Logs ─────────────────────────────────────────────
+
+server.tool(
+  'browser_console_logs',
+  'Read captured console logs, runtime errors, and uncaught exceptions from the client-side browser context.',
+  {},
+  async () => {
+    try {
+      const browser = getBrowser();
+      const logs = browser.getConsoleLogs();
+      if (logs.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No console logs captured yet for the active page session.',
+            },
+          ],
+        };
+      }
+
+      const formatted = logs
+        .map((l) => `[${l.timestamp}] [${l.type.toUpperCase()}]: ${l.text}`)
+        .join('\n');
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Captured ${logs.length} console log entries:\n\n${formatted}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: `Failed to retrieve console logs: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// ── Tool 8: Scroll Page ──────────────────────────────────────────────────────
 
 server.tool(
   'browser_scroll',
-  'Scroll the web page up or down.',
+  'Scroll the active page viewport up or down by a specified pixel amount.',
   {
-    direction: z.enum(['up', 'down']).default('down').describe('Direction to scroll'),
-    amount: z.number().default(400).describe('Amount to scroll in pixels'),
+    direction: z.enum(['down', 'up']).default('down').describe('Direction to scroll the page'),
+    amount: z.number().default(400).describe('Scroll distance in pixels'),
   },
   async ({ direction, amount }) => {
     try {
@@ -287,7 +408,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: `Scrolled ${direction} by ${amount}px`,
+            text: `Scrolled page ${direction} by ${amount}px.`,
           },
         ],
       };
@@ -297,7 +418,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: `Scroll failed: ${err instanceof Error ? err.message : String(err)}`,
+            text: `Failed to scroll page: ${err instanceof Error ? err.message : String(err)}`,
           },
         ],
       };
@@ -305,43 +426,11 @@ server.tool(
   }
 );
 
-// ── Tool 8: Inspect Console Logs ─────────────────────────────────────────────
-
-server.tool(
-  'browser_console_logs',
-  'Retrieve all captured console output (logs, warnings, errors) and uncaught JavaScript page exceptions.',
-  {},
-  async () => {
-    try {
-      const browser = getBrowser();
-      const logs = browser.getLogs();
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: logs.length > 0 ? JSON.stringify(logs, null, 2) : 'No console messages recorded.',
-          },
-        ],
-      };
-    } catch (err) {
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: `Failed to fetch logs: ${err instanceof Error ? err.message : String(err)}`,
-          },
-        ],
-      };
-    }
-  }
-);
-
-// ── Tool 9: Close Browser Session ────────────────────────────────────────────
+// ── Tool 9: Close Browser ────────────────────────────────────────────────────
 
 server.tool(
   'browser_close',
-  'Close the active browser session and release system resources.',
+  'Cleanly close the active browser session and release memory resources.',
   {},
   async () => {
     try {
@@ -353,7 +442,7 @@ server.tool(
         content: [
           {
             type: 'text' as const,
-            text: 'Browser session successfully closed.',
+            text: 'Browser session terminated cleanly.',
           },
         ],
       };
@@ -371,15 +460,15 @@ server.tool(
   }
 );
 
-// ── Start Server via Standard I/O ────────────────────────────────────────────
+// ── Server Boot ─────────────────────────────────────────────────────────────
 
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('[BrowserVisionMCP] Server running via stdio transport.');
+  console.error('🚀 Browser Vision MCP Server v1.1 (Security Shield Active) running on stdio');
 }
 
-main().catch((err) => {
-  console.error('[BrowserVisionMCP] Fatal startup error:', err);
+main().catch((error) => {
+  console.error('Fatal error in Browser Vision MCP:', error);
   process.exit(1);
 });
