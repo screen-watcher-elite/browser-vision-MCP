@@ -62,7 +62,7 @@ Add to your `mcp_config.json`:
   "mcpServers": {
     "browser-vision": {
       "command": "node",
-      "args": ["C:/Users/Ashutosh/PSL2/browser-vision-mcp/dist/index.js"]
+      "args": ["C:/(your-selected-folder)browser-vision-mcp/dist/index.js"]
     }
   }
 }
